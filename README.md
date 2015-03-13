@@ -1,7 +1,7 @@
 # CDZModel
 data model, initialize itself from dictionary，数据模型，可以从字典里自动初始化
 
-have automatically implement NSCopying and NSSecureCoding，已经实现NSCopying, NSSecureCoding（子类不用实现）
+have automatically implement NSCopying and NSSecureCoding protocol，已经实现NSCopying, NSSecureCoding协议（子类不用实现）
 
 ===============
 to use like following，使用如下：
