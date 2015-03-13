@@ -4,6 +4,7 @@ data model, initialize itself from dictionary，数据模型，可以从字典�
 ===============
 to use like following，使用如下：
 
+CDZUser.h
 ```objc
 @interface CDZUser : CDZModel
 @property (nonatomic, strong) NSString* name;
@@ -12,8 +13,10 @@ to use like following，使用如下：
 @property (nonatomic, strong) CDZUser* father;
 @property (nonatomic, strong) NSMutableArray* friends;
 @end
+```
 
-
+CDZUser.m
+```objc
 @implementation CDZUser
 +(Class)classInArrayProperty:(NSString *)propertyName{
     if([propertyName isEqualToString:@"friends"]){
@@ -28,9 +31,10 @@ to use like following，使用如下：
 }
 @end
 
+```
 
-
-
+test code
+```objc
 NSDictionary* dic = @{@"name":@"Janney",
                           @"age":@(26),
                           @"mother":@{@"name":@"Lucy"},
