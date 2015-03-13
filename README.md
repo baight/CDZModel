@@ -38,12 +38,12 @@ CDZUser.m
 test code
 ```objc
 NSDictionary* dic = @{@"name":@"Janney",
-                          @"age":@(26),
-                          @"mother":@{@"name":@"Lucy"},
-                          @"father":@{@"name":@"Jake"},
-                          @"friends":@[@{@"name":@"Forrest"},
-                                       @{@"name":@"LiLei"},
-                                       @{@"name":@"HanMeiMei"}]};
+                      @"age":@(26),
+                      @"mother":@{@"name":@"Lucy"},
+                      @"father":@{@"name":@"Jake"},
+                      @"friends":@[@{@"name":@"Forrest"},
+                                   @{@"name":@"LiLei"},
+                                   @{@"name":@"HanMeiMei"}]};
     
 // Janney has initialized from dictionary
 CDZUser* Janney = [[CDZUser alloc]initWithDictionary:dic];
