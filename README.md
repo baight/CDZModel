@@ -4,6 +4,7 @@ data model, initialize itself from dictionary，数据模型，可以从字典�
 ===============
 to use like following，使用如下：
 
+```objc
 @interface CDZUser : CDZModel
 @property (nonatomic, strong) NSString* name;
 @property (nonatomic, assign) NSInteger age;
@@ -61,3 +62,4 @@ d = @{@"name":@"Janney",
 // copy of Janney
 CDZUser* cloneJanney = [Janney copy];
 
+```
