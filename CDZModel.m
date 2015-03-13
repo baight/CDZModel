@@ -1,6 +1,6 @@
 //
 //  CDZModel.m
-//  HappyKTV
+//  
 //
 //  Created by zhengchen2 on 14-10-28.
 //  Copyright (c) 2014年 zhengchen2 All rights reserved.
