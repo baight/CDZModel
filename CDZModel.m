@@ -1,6 +1,6 @@
 //
 //  CDZModel.m
-//  
+//  HappyKTV
 //
 //  Created by zhengchen2 on 14-10-28.
 //  Copyright (c) 2014年 zhengchen2 All rights reserved.
@@ -65,7 +65,7 @@ static const char CDZPropertyKey;
     }
 }
 +(NSMutableArray*)cachedProperties{
-    NSMutableArray *cachedProperties = objc_getAssociatedObject([self class], &CDZPropertyKey);
+    NSMutableArray *cachedProperties = objc_getAssociatedObject(self, &CDZPropertyKey);
     if(cachedProperties == nil){
         cachedProperties = [[NSMutableArray alloc]init];
         
