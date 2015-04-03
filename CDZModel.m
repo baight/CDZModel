@@ -148,7 +148,12 @@ static const char CDZPropertyKey;
         for(CDZProperty* property in cachedProperties){
             id propertyValue = [self valueForKey:property.name];
             if(propertyValue){
-                [obj setValue:propertyValue forKey:property.name];
+                if(property.isSubclassOfCDZModel){
+                    [obj setValue:[propertyValue copy] forKey:property.name];
+                }
+                else{
+                    [obj setValue:propertyValue forKey:property.name];
+                }
             }
         }
     }
