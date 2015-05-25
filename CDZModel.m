@@ -32,14 +32,14 @@ static const char CDZPropertyKey;
 -(id)initWithDictionary:(NSDictionary*)dictionry{
     self = [super init];
     if(self){
-        [self initMyPropertiesWithDictionary:dictionry];
+        [self setPropertiesWithDictionary:dictionry];
         [self didInitializeWithDictionary:dictionry];
     }
     return self;
 }
 
 // 遍历自己的属性，并从字典中寻找相应字段，初始化属性
--(void)initMyPropertiesWithDictionary:(NSDictionary*)dictionry{
+-(void)setPropertiesWithDictionary:(NSDictionary*)dictionry{
     Class cc = [CDZModel class];
     for(Class _class = [self class]; _class != cc; _class = [_class superclass]){
         NSMutableArray *cachedProperties = [_class cachedProperties];
@@ -132,6 +132,19 @@ static const char CDZPropertyKey;
         }
     }
     return d;
+}
+
+// 从字典数组里，返回初始化好后的数组
++(NSMutableArray*)objectArrayWithDictionaryArray:(NSArray*)dicArray{
+    NSMutableArray* objectArray = nil;
+    for(NSDictionary* d in dicArray){
+        if(objectArray == nil){
+            objectArray = [[NSMutableArray alloc]init];
+        }
+        id obj = [[self alloc]initWithDictionary:d];
+        [objectArray addObject:obj];
+    }
+    return objectArray;
 }
 
 // 完成了初始化，子类重载

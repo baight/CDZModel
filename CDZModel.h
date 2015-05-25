@@ -13,6 +13,9 @@
 // 遍历自己的属性，并从字典中寻找相应字段，初始化属性
 -(id)initWithDictionary:(NSDictionary*)dictionry;
 
+// 遍历自己的属性，并从字典中寻找相应字段，初始化属性
+-(void)setPropertiesWithDictionary:(NSDictionary*)dictionry;
+
 // 根据自己的属性，生成字典
 -(NSMutableDictionary*)dictionaryForProperties;
 
@@ -23,5 +26,8 @@
 // 如果数组成员类型是 CDZModel子类，则子类可以重载并返回正确类型。
 // 如果不是 CDZModel子类，返回 NULL，或不重载即可。
 +(Class)classInArrayProperty:(NSString*)propertyName;
+
+// 从字典数组里，返回初始化好后的数组
++(NSMutableArray*)objectArrayWithDictionaryArray:(NSArray*)dicArray;
 
 @end
