@@ -13,6 +13,8 @@
 
 @interface CDZProperty : NSObject
 @property (nonatomic, strong) NSString* name;
+@property (nonatomic, assign) BOOL writable;
+@property (nonatomic, assign) BOOL readable;
 
 @property (nonatomic, assign) Class typeClass;
 @property (nonatomic, assign) BOOL isSubclassOfCDZModel;
@@ -44,22 +46,24 @@ static const char CDZPropertyKey;
     for(Class _class = [self class]; _class != cc; _class = [_class superclass]){
         NSMutableArray *cachedProperties = [_class cachedProperties];
         for(CDZProperty* property in cachedProperties){
-            id propertyValue = [dictionry objectForKey:property.name];
-            if(propertyValue){
-                if(property.isSubclassOfCDZModel){
-                    propertyValue = [[property.typeClass alloc] initWithDictionary:propertyValue];
-                }
-                else if(property.isSubclassOfNSArray){
-                    if(property.typeClassInArray){
-                        NSMutableArray* array = [[NSMutableArray alloc]initWithCapacity:[propertyValue count]];
-                        for(NSDictionary* d in propertyValue){
-                            id obj = [[property.typeClassInArray alloc]initWithDictionary:d];
-                            [array addObject:obj];
-                        }
-                        propertyValue = array;
+            if(property.writable){
+                id propertyValue = [dictionry objectForKey:property.name];
+                if(propertyValue){
+                    if(property.isSubclassOfCDZModel){
+                        propertyValue = [[property.typeClass alloc] initWithDictionary:propertyValue];
                     }
+                    else if(property.isSubclassOfNSArray){
+                        if(property.typeClassInArray){
+                            NSMutableArray* array = [[NSMutableArray alloc]initWithCapacity:[propertyValue count]];
+                            for(NSDictionary* d in propertyValue){
+                                id obj = [[property.typeClassInArray alloc]initWithDictionary:d];
+                                [array addObject:obj];
+                            }
+                            propertyValue = array;
+                        }
+                    }
+                    [self setValue:propertyValue forKey:property.name];
                 }
-                [self setValue:propertyValue forKey:property.name];
             }
         }
     }
@@ -97,6 +101,15 @@ static const char CDZPropertyKey;
                     }
                 }
             }
+            
+            if([self instancesRespondToSelector:NSSelectorFromString(myProperty.name)]){
+                myProperty.readable = YES;
+            }
+            NSString* setMethodString = [[NSString alloc] initWithFormat:@"set%@:", myProperty.name.firstCharUpper, nil];
+            if([self instancesRespondToSelector:NSSelectorFromString(setMethodString)]){
+                myProperty.writable = YES;
+            }
+            
             [cachedProperties addObject:myProperty];
         }
         free(properties);
@@ -104,6 +117,12 @@ static const char CDZPropertyKey;
         objc_setAssociatedObject(self, &CDZPropertyKey, cachedProperties, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     }
     return cachedProperties;
+}
++(NSString*)setMethodWithPropertyName:(NSString*)property{
+    if(property.length == 0){
+        return nil;
+    }
+    return [NSString stringWithFormat:@"set%@", property.firstCharUpper, nil];
 }
 
 // 根据自己的属性，生成字典
@@ -113,21 +132,23 @@ static const char CDZPropertyKey;
     for(Class _class = [self class]; _class != cc; _class = [_class superclass]){
         NSMutableArray *cachedProperties = [_class cachedProperties];
         for(CDZProperty* property in cachedProperties){
-            id value = [self valueForKey:property.name];
-            if(value){
-                if(property.isSubclassOfCDZModel){
-                    value = [value dictionaryForProperties];
-                }
-                else if(property.isSubclassOfNSArray){
-                    NSMutableArray* array = [[NSMutableArray alloc]initWithCapacity:[value count]];
-                    for(CDZModel* c in value){
-                        if([c isKindOfClass:[CDZModel class]]){
-                            [array addObject:[c dictionaryForProperties]];
-                        }
+            if(property.readable){
+                id value = [self valueForKey:property.name];
+                if(value){
+                    if(property.isSubclassOfCDZModel){
+                        value = [value dictionaryForProperties];
                     }
-                    value = array;
+                    else if(property.isSubclassOfNSArray){
+                        NSMutableArray* array = [[NSMutableArray alloc]initWithCapacity:[value count]];
+                        for(CDZModel* c in value){
+                            if([c isKindOfClass:[CDZModel class]]){
+                                [array addObject:[c dictionaryForProperties]];
+                            }
+                        }
+                        value = array;
+                    }
+                    [d setObject:value forKey:property.name];
                 }
-                [d setObject:value forKey:property.name];
             }
         }
     }
@@ -159,13 +180,15 @@ static const char CDZPropertyKey;
     for(Class _class = [self class]; _class != cc; _class = [_class superclass]){
         NSMutableArray *cachedProperties = [_class cachedProperties];
         for(CDZProperty* property in cachedProperties){
-            id propertyValue = [self valueForKey:property.name];
-            if(propertyValue){
-                if(property.isSubclassOfCDZModel){
-                    [obj setValue:[propertyValue copy] forKey:property.name];
-                }
-                else{
-                    [obj setValue:propertyValue forKey:property.name];
+            if(property.readable && property.writable){
+                id propertyValue = [self valueForKey:property.name];
+                if(propertyValue){
+                    if(property.isSubclassOfCDZModel){
+                        [obj setValue:[propertyValue copy] forKey:property.name];
+                    }
+                    else{
+                        [obj setValue:propertyValue forKey:property.name];
+                    }
                 }
             }
         }
@@ -182,9 +205,11 @@ static const char CDZPropertyKey;
     for(Class _class = [self class]; _class != cc; _class = [_class superclass]){
         NSMutableArray *cachedProperties = [_class cachedProperties];
         for(CDZProperty* property in cachedProperties){
-            id propertyValue = [self valueForKey:property.name];
-            if(propertyValue){
-                [aCoder encodeObject:propertyValue forKey:property.name];
+            if(property.readable){
+                id propertyValue = [self valueForKey:property.name];
+                if(propertyValue){
+                    [aCoder encodeObject:propertyValue forKey:property.name];
+                }
             }
         }
     }
@@ -195,9 +220,11 @@ static const char CDZPropertyKey;
         for(Class _class = [self class]; _class != cc; _class = [_class superclass]){
             NSMutableArray *cachedProperties = [_class cachedProperties];
             for(CDZProperty* property in cachedProperties){
-                id propertyValue = [aDecoder decodeObjectForKey:property.name];
-                if(propertyValue){
-                    [self setValue:propertyValue forKey:property.name];
+                if(property.writable){
+                    id propertyValue = [aDecoder decodeObjectForKey:property.name];
+                    if(propertyValue){
+                        [self setValue:propertyValue forKey:property.name];
+                    }
                 }
             }
         }
