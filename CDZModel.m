@@ -13,6 +13,7 @@
 
 @interface CDZProperty : NSObject
 @property (nonatomic, strong) NSString* name;
+@property (nonatomic, strong) NSString* key;
 @property (nonatomic, assign) BOOL writable;
 @property (nonatomic, assign) BOOL readable;
 
@@ -31,7 +32,7 @@
 static const char CDZPropertyKey;
 
 @implementation CDZModel
--(id)initWithDictionary:(NSDictionary*)dictionry{
+- (id)initWithDictionary:(NSDictionary*)dictionry{
     self = [super init];
     if(self){
         [self setPropertiesWithDictionary:dictionry];
@@ -41,13 +42,13 @@ static const char CDZPropertyKey;
 }
 
 // 遍历自己的属性，并从字典中寻找相应字段，初始化属性
--(void)setPropertiesWithDictionary:(NSDictionary*)dictionry{
+- (void)setPropertiesWithDictionary:(NSDictionary*)dictionry{
     Class cc = [CDZModel class];
     for(Class _class = [self class]; _class != cc; _class = [_class superclass]){
         NSMutableArray *cachedProperties = [_class cachedProperties];
         for(CDZProperty* property in cachedProperties){
             if(property.writable){
-                id propertyValue = [dictionry objectForKey:property.name];
+                id propertyValue = [dictionry objectForKey:property.key];
                 if(propertyValue){
                     if(property.isSubclassOfCDZModel){
                         propertyValue = [[property.typeClass alloc] initWithDictionary:propertyValue];
@@ -68,7 +69,7 @@ static const char CDZPropertyKey;
         }
     }
 }
-+(NSMutableArray*)cachedProperties{
++ (NSMutableArray*)cachedProperties{
     NSMutableArray *cachedProperties = objc_getAssociatedObject(self, &CDZPropertyKey);
     if(cachedProperties == nil){
         cachedProperties = [[NSMutableArray alloc]init];
@@ -79,7 +80,11 @@ static const char CDZPropertyKey;
             CDZProperty* myProperty = [[CDZProperty alloc]init];
             objc_property_t property = properties[i];
             myProperty.name = [NSString stringWithUTF8String:property_getName(property)];
+            myProperty.key = [self keyForProperty:myProperty.name];
+            
             NSString* attributes = [NSString stringWithUTF8String:property_getAttributes(property)];
+            
+            // 是 id类的属性
             NSRange range = [attributes rangeOfString:@"T@\""];
             if(range.length > 0){
                 NSInteger startIndex = range.location + range.length;
@@ -118,15 +123,9 @@ static const char CDZPropertyKey;
     }
     return cachedProperties;
 }
-+(NSString*)setMethodWithPropertyName:(NSString*)property{
-    if(property.length == 0){
-        return nil;
-    }
-    return [NSString stringWithFormat:@"set%@", property.firstCharUpper, nil];
-}
 
 // 根据自己的属性，生成字典
--(NSMutableDictionary*)dictionaryForProperties{
+- (NSMutableDictionary*)dictionaryForProperties{
     NSMutableDictionary* d = [NSMutableDictionary dictionary];
     Class cc = [CDZModel class];
     for(Class _class = [self class]; _class != cc; _class = [_class superclass]){
@@ -147,7 +146,7 @@ static const char CDZPropertyKey;
                         }
                         value = array;
                     }
-                    [d setObject:value forKey:property.name];
+                    [d setObject:value forKey:property.key];
                 }
             }
         }
@@ -156,7 +155,7 @@ static const char CDZPropertyKey;
 }
 
 // 从字典数组里，返回初始化好后的数组
-+(NSMutableArray*)objectArrayWithDictionaryArray:(NSArray*)dicArray{
++ (NSMutableArray*)objectArrayWithDictionaryArray:(NSArray*)dicArray{
     NSMutableArray* objectArray = nil;
     for(NSDictionary* d in dicArray){
         if(objectArray == nil){
@@ -169,9 +168,11 @@ static const char CDZPropertyKey;
 }
 
 // 完成了初始化，子类重载
--(void)didInitializeWithDictionary:(NSDictionary*)dictionry{}
+- (void)didInitializeWithDictionary:(NSDictionary*)dictionry{}
 // 数组中的类型，必须是 CDZModel子类，不然解析不正确
-+(Class)classInArrayProperty:(NSString*)propertyName{ return NULL; }
++ (Class)classInArrayProperty:(NSString*)propertyName{ return NULL; }
+// 返回 property属性 在字典中 所对应的键名，默认返回 propertyName
++ (NSString*)keyForProperty:(NSString*)propertyName{ return propertyName; }
 
 #pragma mark - NSCopying
 - (id)copyWithZone:(NSZone *)zone{
