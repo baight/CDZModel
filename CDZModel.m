@@ -10,12 +10,26 @@
 #import <objc/message.h>
 #import <objc/runtime.h>
 
+typedef enum{
+    CDZPropertyTypeId,
+    CDZPropertyTypeClass,
+    CDZPropertyTypeInt,
+    CDZPropertyTypeShort,
+    CDZPropertyTypeChar,
+    CDZPropertyTypeBool,
+    CDZPropertyTypeFloat,
+    CDZPropertyTypeDouble,
+    CDZPropertyTypeLong
+}CDZPropertyType;
+
 
 @interface CDZProperty : NSObject
 @property (nonatomic, strong) NSString* name;
 @property (nonatomic, strong) NSString* key;
 @property (nonatomic, assign) BOOL writable;
 @property (nonatomic, assign) BOOL readable;
+
+@property (nonatomic, assign) CDZPropertyType type;
 
 @property (nonatomic, assign) Class typeClass;
 @property (nonatomic, assign) BOOL isSubclassOfCDZModel;
@@ -50,20 +64,50 @@ static const char CDZPropertyKey;
             if(property.writable){
                 id propertyValue = [dictionry objectForKey:property.key];
                 if(propertyValue){
-                    if(property.isSubclassOfCDZModel){
-                        propertyValue = [[property.typeClass alloc] initWithDictionary:propertyValue];
-                    }
-                    else if(property.isSubclassOfNSArray){
-                        if(property.typeClassInArray){
-                            NSMutableArray* array = [[NSMutableArray alloc]initWithCapacity:[propertyValue count]];
-                            for(NSDictionary* d in propertyValue){
-                                id obj = [[property.typeClassInArray alloc]initWithDictionary:d];
-                                [array addObject:obj];
+                    if(property.type == CDZPropertyTypeId || property.type == CDZPropertyTypeClass){
+                        if(property.isSubclassOfCDZModel){
+                            propertyValue = [[property.typeClass alloc] initWithDictionary:propertyValue];
+                        }
+                        else if(property.isSubclassOfNSArray){
+                            if(property.typeClassInArray){
+                                NSMutableArray* array = [[NSMutableArray alloc]initWithCapacity:[propertyValue count]];
+                                for(NSDictionary* d in propertyValue){
+                                    id obj = [[property.typeClassInArray alloc]initWithDictionary:d];
+                                    [array addObject:obj];
+                                }
+                                propertyValue = array;
                             }
-                            propertyValue = array;
+                        }
+                        [self setValue:propertyValue forKey:property.name];
+                    }
+                    else{
+                        if ([propertyValue isKindOfClass:[NSNumber class]]) {
+                            [self setValue:propertyValue forKey:property.name];
+                        }
+                        else if ([propertyValue isKindOfClass:[NSString class]]) {
+                            NSString* stringValue = (NSString*)propertyValue;
+                            NSNumber* numberValue = nil;
+                            if (property.type == CDZPropertyTypeBool) {
+                                numberValue = [[NSNumber alloc]initWithBool:[stringValue boolValue]];
+                            }
+                            else if (property.type == CDZPropertyTypeInt ||
+                                property.type == CDZPropertyTypeShort ||
+                                property.type == CDZPropertyTypeChar ||
+                                property.type == CDZPropertyTypeLong) {
+                                numberValue = [[NSNumber alloc]initWithInt:[stringValue intValue]];
+                            }
+                            
+                            else if (property.type == CDZPropertyTypeFloat) {
+                                numberValue = [[NSNumber alloc]initWithFloat:[stringValue floatValue]];
+                            }
+                            else if (property.type == CDZPropertyTypeDouble) {
+                                numberValue = [[NSNumber alloc]initWithDouble:[stringValue doubleValue]];
+                            }
+                            if(numberValue){
+                                [self setValue:numberValue forKey:property.name];
+                            }
                         }
                     }
-                    [self setValue:propertyValue forKey:property.name];
                 }
             }
         }
@@ -82,27 +126,55 @@ static const char CDZPropertyKey;
             myProperty.name = [NSString stringWithUTF8String:property_getName(property)];
             myProperty.key = [self keyForProperty:myProperty.name];
             
-            NSString* attributes = [NSString stringWithUTF8String:property_getAttributes(property)];
-            
-            // 是 id类的属性
-            NSRange range = [attributes rangeOfString:@"T@\""];
-            if(range.length > 0){
-                NSInteger startIndex = range.location + range.length;
-                NSInteger endIndex = 0;
-                for(NSInteger i=startIndex; i< attributes.length; i++){
-                    unichar c = [attributes characterAtIndex:i];
-                    if(c == '"'){
-                        endIndex = i;
-                        break;
-                    }
+            NSString* attriString = [NSString stringWithUTF8String:property_getAttributes(property)];
+            NSArray* attributes = [attriString componentsSeparatedByString:@","];
+            NSString* typeString = nil;
+            for(NSString* a in attributes){
+                if([a hasPrefix:@"T"]){
+                    typeString = a;
+                    break;
                 }
-                if(endIndex > 0){
-                    NSString* className = [attributes substringWithRange:NSMakeRange(startIndex, endIndex - startIndex)];
+            }
+            
+            // id类型
+            if([typeString isEqualToString:@"T@"]){
+                myProperty.type = CDZPropertyTypeId;
+            }
+            else{
+                // Class 类型
+                NSRange range = [typeString rangeOfString:@"T@\""];
+                if(range.location != NSNotFound && typeString.length > 4){
+                    myProperty.type = CDZPropertyTypeClass;
+                    NSString* className = [typeString substringWithRange:NSMakeRange(3, typeString.length-4)];
                     myProperty.typeClass = NSClassFromString(className);
-                    myProperty.isSubclassOfCDZModel = [myProperty.typeClass isSubclassOfClass:[CDZModel class]];
-                    myProperty.isSubclassOfNSArray = [myProperty.typeClass isSubclassOfClass:[NSArray class]];
+                    myProperty.isSubclassOfCDZModel = (myProperty.typeClass == [CDZModel class] || [myProperty.typeClass isSubclassOfClass:[CDZModel class]]);
+                    myProperty.isSubclassOfNSArray = (myProperty.typeClass == [NSArray class] ||[myProperty.typeClass isSubclassOfClass:[NSArray class]]);
                     if(myProperty.isSubclassOfNSArray){
                         myProperty.typeClassInArray = [self classInArrayProperty:myProperty.name];
+                    }
+                }
+                else{
+                    NSString *lowerTypeString = typeString.lowercaseString;
+                    if ([lowerTypeString isEqualToString:@"ti"]) {
+                        myProperty.type = CDZPropertyTypeInt;
+                    }
+                    else if ([lowerTypeString isEqualToString:@"ts"]) {
+                        myProperty.type = CDZPropertyTypeShort;
+                    }
+                    else if ([lowerTypeString isEqualToString:@"tc"]) {
+                        myProperty.type = CDZPropertyTypeChar;
+                    }
+                    else if ([lowerTypeString isEqualToString:@"tb"]) {
+                        myProperty.type = CDZPropertyTypeBool;
+                    }
+                    else if ([lowerTypeString isEqualToString:@"tf"]) {
+                        myProperty.type = CDZPropertyTypeFloat;
+                    }
+                    else if ([lowerTypeString isEqualToString:@"td"]) {
+                        myProperty.type = CDZPropertyTypeDouble;
+                    }
+                    else if ([lowerTypeString isEqualToString:@"tq"]) {
+                        myProperty.type = CDZPropertyTypeLong;
                     }
                 }
             }
@@ -233,5 +305,76 @@ static const char CDZPropertyKey;
     return self;
 }
 
+#pragma mark - Localization
+// 用 key 来生成 filePath
++ (NSString*)filePathForKey:(NSString*)aKey{
+    NSString *documentDirectory = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) firstObject];
+    NSString* fileName = [@"CDZModel/" stringByAppendingString:aKey];
+    return [documentDirectory stringByAppendingPathComponent:fileName];
+}
+
+// 用key来储存
+- (BOOL)saveForKey:(NSString*)aKey{
+    if(aKey.length == 0){
+        return NO;
+    }
+    NSString* filePath = [CDZModel filePathForKey:aKey];
+    return [self saveWithFilePath:filePath];
+}
++ (id)objectForKey:(NSString*)aKey{
+    if(aKey.length == 0){
+        return nil;
+    }
+    NSString* filePath = [CDZModel filePathForKey:aKey];
+    return [self objectWithFilePath:filePath];
+}
+// 用key来储存数组
++ (void)saveObjectArray:(NSArray*)array forKey:(NSString*)aKey{
+    if(aKey.length == 0){
+        return ;
+    }
+    NSString* filePath = [CDZModel filePathForKey:aKey];
+    [self saveObjectArray:array withFilePath:filePath];
+}
++ (NSMutableArray*)objectArrayForKey:(NSString*)aKey{
+    if(aKey.length == 0){
+        return nil;
+    }
+    NSString* filePath = [CDZModel filePathForKey:aKey];
+    [self objectArrayWithFile:@""];
+    return [self objectArrayWithFilePath:filePath];
+}
+
+// 将数据储存在 filePath 里
+- (BOOL)saveWithFilePath:(NSString*)filePath{
+    NSString* dirPath = [filePath stringByDeletingLastPathComponent];
+    if (![[NSFileManager defaultManager] fileExistsAtPath:dirPath]) {
+        NSError* error = nil;
+        [[NSFileManager defaultManager] createDirectoryAtPath:dirPath withIntermediateDirectories:YES attributes:nil error:&error];
+        if(error){
+            return NO;
+        }
+    }
+    return [NSKeyedArchiver archiveRootObject:self toFile:filePath];
+}
++ (id)objectWithFilePath:(NSString*)filePath{
+    return [NSKeyedUnarchiver unarchiveObjectWithFile:filePath];
+}
+// 将数组储存在 filePath 里
++ (void)saveObjectArray:(NSArray*)array withFilePath:(NSString*)filePath{
+    [NSKeyedArchiver archiveRootObject:array toFile:filePath];
+}
++ (NSMutableArray*)objectArrayWithFilePath:(NSString*)filePath{
+    return [NSKeyedUnarchiver unarchiveObjectWithFile:filePath];
+}
+
+// 删除
++ (void)removeForKey:(NSString*)aKey{
+    NSString* filePath = [CDZModel filePathForKey:aKey];
+    [self removeFileWithFilePath:filePath];
+}
++ (void)removeFileWithFilePath:(NSString*)filePath{
+    [[NSFileManager defaultManager] removeItemAtPath:filePath error:NULL];
+}
 
 @end
